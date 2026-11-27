@@ -1,0 +1,130 @@
+name: fieldops-ai
+
+# Shared application image and wiring. The API, Celery worker, Celery beat and
+# one-shot migration runner all use the same image. They are behind the "app"
+# profile so `docker compose up` keeps starting only the infrastructure
+# dependencies. Start the full stack with:
+#   docker compose --profile app up --build
+x-app-image: &app-image
+  build:
+    context: ./backend
+    dockerfile: Dockerfile
+  image: fieldops-ai-backend:local
+
+x-app-environment: &app-environment
+  DATABASE_URL: postgresql+asyncpg://fieldops:fieldops@postgres:5432/fieldops
+  REDIS_URL: redis://redis:6379/0
+
+x-app-depends-on: &app-depends-on
+  postgres:
+    condition: service_healthy
+  redis:
+    condition: service_healthy
+
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: fieldops-redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+
+  postgres:
+    image: pgvector/pgvector:pg17
+    container_name: fieldops-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: fieldops
+      POSTGRES_PASSWORD: fieldops
+      POSTGRES_DB: fieldops
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fieldops -d fieldops"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+
+  migrate:
+    <<: *app-image
+    profiles: ["app"]
+    command: ["alembic", "upgrade", "head"]
+    environment:
+      <<: *app-environment
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  api:
+    <<: *app-image
+    container_name: fieldops-api
+    profiles: ["app"]
+    restart: unless-stopped
+    environment:
+      <<: *app-environment
+    depends_on:
+      <<: *app-depends-on
+      migrate:
+        condition: service_completed_successfully
+    ports:
+      - "8000:8000"
+    volumes:
+      - document_storage:/app/var/document_storage
+
+  worker:
+    <<: *app-image
+    container_name: fieldops-worker
+    profiles: ["app"]
+    restart: unless-stopped
+    command:
+      - celery
+      - -A
+      - app.celery_app:celery_app
+      - worker
+      - --loglevel=INFO
+      - --concurrency=2
+    environment:
+      <<: *app-environment
+    depends_on:
+      <<: *app-depends-on
+      migrate:
+        condition: service_completed_successfully
+    volumes:
+      - document_storage:/app/var/document_storage
+
+  # Celery beat drives the periodic outbox dispatch sweep, so an event left
+  # PENDING by a broker outage or a crash is published without manual action.
+  beat:
+    <<: *app-image
+    container_name: fieldops-beat
+    profiles: ["app"]
+    restart: unless-stopped
+    command:
+      - celery
+      - -A
+      - app.celery_app:celery_app
+      - beat
+      - --loglevel=INFO
+    environment:
+      <<: *app-environment
+    depends_on:
+      <<: *app-depends-on
+      migrate:
+        condition: service_completed_successfully
+
+volumes:
+  postgres_data:
+  redis_data:
+  document_storage:

@@ -1,0 +1,27 @@
+[project]
+name = "backend"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+    "alembic>=1.20.1",
+    "asyncpg>=0.32.0",
+    "celery[redis]>=5.7.0",
+    "clerk-backend-api>=7.1.1",
+    "deepagents>=0.7.42",
+    "fastapi>=0.165.0",
+    "langchain>=1.5.2",
+    "langchain-openai>=1.8.5",
+    "langchain-text-splitters>=1.2.0",
+    "langgraph>=1.2.24",
+    "mypy>=2.4.1",
+    "psycopg2-binary>=2.9.13",
+    "pydantic-settings>=2.16.3",
+    "pydantic[email]>=2.14.4",
+    "pytest>=9.2.0",
+    "pytest-asyncio>=1.5.0",
+    "python-dotenv>=1.2.4",
+    "redis>=8.2.0",
+    "ruff>=0.17.6",
+    "sqlalchemy[asyncio]>=2.1.9",
+    "uvicorn[standard]>=0.54.0",
+]
