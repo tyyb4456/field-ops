@@ -2,11 +2,10 @@ from __future__ import annotations
 
 from app.models.customer import Customer
 from app.models.equipment import Equipment
-
 from app.models.user import User
-from app.schemas.user import UserMeResponse
 from app.schemas.customer import CustomerProfileResponse
 from app.schemas.equipment import EquipmentResponse
+from app.schemas.user import UserMeResponse
 
 
 def user_me_response(user: User) -> UserMeResponse:

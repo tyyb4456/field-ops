@@ -1,10 +1,13 @@
 name: fieldops-ai
 
-# Shared application image and wiring. The API, Celery worker, Celery beat and
-# one-shot migration runner all use the same image. They are behind the "app"
-# profile so `docker compose up` keeps starting only the infrastructure
-# dependencies. Start the full stack with:
+# Shared application image and wiring for the API. The API is behind the "app"
+# profile so `docker compose up` starts only the infrastructure dependencies.
+# Start the API stack with:
 #   docker compose --profile app up --build
+#
+# Celery workers/beat and database migrations are intentionally not part of
+# Phase 1. They will be added when background processing and the Alembic
+# migration setup are implemented.
 x-app-image: &app-image
   build:
     context: ./backend
@@ -57,16 +60,6 @@ services:
       retries: 10
       start_period: 5s
 
-  migrate:
-    <<: *app-image
-    profiles: ["app"]
-    command: ["alembic", "upgrade", "head"]
-    environment:
-      <<: *app-environment
-    depends_on:
-      postgres:
-        condition: service_healthy
-
   api:
     <<: *app-image
     container_name: fieldops-api
@@ -76,53 +69,10 @@ services:
       <<: *app-environment
     depends_on:
       <<: *app-depends-on
-      migrate:
-        condition: service_completed_successfully
     ports:
       - "8000:8000"
     volumes:
       - document_storage:/app/var/document_storage
-
-  worker:
-    <<: *app-image
-    container_name: fieldops-worker
-    profiles: ["app"]
-    restart: unless-stopped
-    command:
-      - celery
-      - -A
-      - app.celery_app:celery_app
-      - worker
-      - --loglevel=INFO
-      - --concurrency=2
-    environment:
-      <<: *app-environment
-    depends_on:
-      <<: *app-depends-on
-      migrate:
-        condition: service_completed_successfully
-    volumes:
-      - document_storage:/app/var/document_storage
-
-  # Celery beat drives the periodic outbox dispatch sweep, so an event left
-  # PENDING by a broker outage or a crash is published without manual action.
-  beat:
-    <<: *app-image
-    container_name: fieldops-beat
-    profiles: ["app"]
-    restart: unless-stopped
-    command:
-      - celery
-      - -A
-      - app.celery_app:celery_app
-      - beat
-      - --loglevel=INFO
-    environment:
-      <<: *app-environment
-    depends_on:
-      <<: *app-depends-on
-      migrate:
-        condition: service_completed_successfully
 
 volumes:
   postgres_data:

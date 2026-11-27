@@ -9,6 +9,7 @@ dependencies = [
     "clerk-backend-api>=7.1.1",
     "deepagents>=0.7.42",
     "fastapi>=0.165.0",
+    "httpx>=0.29.0",
     "langchain>=1.5.2",
     "langchain-openai>=1.8.5",
     "langchain-text-splitters>=1.2.0",
@@ -25,3 +26,12 @@ dependencies = [
     "sqlalchemy[asyncio]>=2.1.9",
     "uvicorn[standard]>=0.54.0",
 ]
+
+[tool.ruff.lint]
+ignore = ["B008"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"

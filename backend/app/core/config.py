@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import uuid
-from datetime import UTC, datetime
 from enum import Enum
 from functools import lru_cache
 from pathlib import Path
@@ -71,14 +69,21 @@ class Settings(BaseSettings):
     debug: bool = False
     api_v1_prefix: str = "/api/v1"
     database_url: str = DEFAULT_DATABASE_URL
+    redis_url: str = DEFAULT_REDIS_URL
     cors_origins: str = DEFAULT_CORS_ORIGINS
     cors_allow_credentials: bool = True
     log_level: str = "INFO"
+    max_request_body_bytes: int = Field(default=1_048_576, ge=1)
 
     clerk_secret_key: str | None = None
     clerk_jwt_key: str | None = None
     clerk_authorized_parties: str = DEFAULT_CORS_ORIGINS
 
+    auth_bootstrap_rate_limit_per_ip: int = Field(default=30, ge=1)
+    auth_bootstrap_rate_limit_per_subject: int = Field(default=10, ge=1)
+    auth_bootstrap_rate_limit_window_seconds: int = Field(default=60, ge=1)
+
+    celery_task_always_eager: bool = False
 
     google_api_key: str | None = None
 
@@ -217,6 +222,22 @@ class Settings(BaseSettings):
                 f"{DEFAULT_XKIRO_BASE_URL}"
             )
         return base_url
+
+    @property
+    def allowed_origins(self) -> list[str]:
+        return [
+            origin.strip()
+            for origin in self.cors_origins.split(",")
+            if origin.strip()
+        ]
+
+    @property
+    def clerk_authorized_parties_list(self) -> list[str]:
+        return [
+            party.strip()
+            for party in self.clerk_authorized_parties.split(",")
+            if party.strip()
+        ]
 
     @model_validator(mode="after")
     def validate_production_settings(self) -> Settings:

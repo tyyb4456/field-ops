@@ -7,7 +7,23 @@ from datetime import UTC, datetime
 from typing import Any
 
 EXTRA_FIELDS = (
-    ...
+    "request_id",
+    "method",
+    "path",
+    "status_code",
+    "duration_ms",
+    "event",
+    "user_id",
+    "actor_id",
+    "customer_id",
+    "complaint_id",
+    "status_from",
+    "status_to",
+    "role",
+    "clerk_user_id",
+    "link_source",
+    "attempts",
+    "error_type",
 )
 
 

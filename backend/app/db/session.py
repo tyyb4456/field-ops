@@ -1,15 +1,11 @@
 from __future__ import annotations
 
-import asyncio
 import logging
-import sys
-from collections.abc import AsyncIterator, Coroutine
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from typing import Any
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import (
-    AsyncEngine,
     AsyncSession,
     async_sessionmaker,
     create_async_engine,

@@ -16,7 +16,6 @@ from app.models.customer import Customer
 from app.models.enums import UserRole
 from app.models.equipment import Equipment
 from app.models.technician import Technician
-from app.models.technician_assignment import TechnicianAssignment
 from app.models.user import User
 from app.services.accounts.clerk_auth import (
     ClerkIdentity,

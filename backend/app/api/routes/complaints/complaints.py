@@ -5,7 +5,6 @@ import uuid
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, Query, status
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.dependencies.auth import (
@@ -16,7 +15,7 @@ from app.api.serializers import complaint_response
 from app.core.exceptions import AppError
 from app.db.session import get_db_session
 from app.models.customer import Customer
-from app.models.enums import ComplaintChannel, ComplaintStatus
+from app.models.enums import ComplaintStatus
 from app.models.user import User
 from app.schemas.complaint import (
     ComplaintCreate,
@@ -99,7 +98,6 @@ async def create_own_complaint(
     customer: Customer = Depends(get_current_customer),
     session: AsyncSession = Depends(get_db_session),
 ) -> ComplaintResponse:
-    ...
     return complaint_response()
 
 
