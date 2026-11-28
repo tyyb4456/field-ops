@@ -10,6 +10,8 @@ COPY --from=ghcr.io/astral-sh/uv:0.12.5 /uv /uvx /bin/
 COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-dev
 
+COPY alembic.ini ./
+COPY alembic ./alembic
 COPY app ./app
 
 ENV PATH="/app/.venv/bin:$PATH"

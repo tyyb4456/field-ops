@@ -13,6 +13,7 @@ if TYPE_CHECKING:
     from app.models.conversation import Conversation
     from app.models.equipment import Equipment
     from app.models.user import User
+    from app.models.work_order import WorkOrder
 
 
 class Customer(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
@@ -37,11 +38,19 @@ class Customer(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
     complaints: Mapped[list[Complaint]] = relationship(
         back_populates="customer",
         foreign_keys="Complaint.customer_id",
+        overlaps="equipment",
         passive_deletes="all",
     )
     conversations: Mapped[list[Conversation]] = relationship(
         back_populates="customer",
         foreign_keys="Conversation.customer_id",
+        passive_deletes="all",
+    )
+    work_orders: Mapped[list[WorkOrder]] = relationship(
+        back_populates="customer",
+        primaryjoin="Customer.id == WorkOrder.customer_id",
+        foreign_keys="WorkOrder.customer_id",
+        overlaps="complaint,equipment",
         passive_deletes="all",
     )
 

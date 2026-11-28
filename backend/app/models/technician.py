@@ -7,14 +7,15 @@ from sqlalchemy import Boolean, ForeignKey, Text, text, true
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.db.base import Base, CreatedAtMixin, UUIDPrimaryKeyMixin
+from app.db.base import Base, UpdatedAtMixin, UUIDPrimaryKeyMixin
 
 if TYPE_CHECKING:
+    from app.models.service_record import ServiceRecord
     from app.models.technician_assignment import TechnicianAssignment
     from app.models.user import User
 
 
-class Technician(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
+class Technician(UUIDPrimaryKeyMixin, UpdatedAtMixin, Base):
     __tablename__ = "technicians"
 
     user_id: Mapped[uuid.UUID] = mapped_column(
@@ -35,11 +36,22 @@ class Technician(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
         default=True,
         server_default=true(),
     )
+    is_active: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=True,
+        server_default=true(),
+    )
 
     user: Mapped[User] = relationship(back_populates="technician")
     assignments: Mapped[list[TechnicianAssignment]] = relationship(
         back_populates="technician",
         passive_deletes="all",
     )
+    service_records: Mapped[list[ServiceRecord]] = relationship(
+        back_populates="technician",
+        passive_deletes="all",
+    )
+
     def __repr__(self) -> str:
         return f"Technician(id={self.id!r}, user_id={self.user_id!r})"

@@ -11,6 +11,8 @@ from pydantic import (
     model_validator,
 )
 
+from app.models.enums import EquipmentOperationalStatus
+
 
 class EquipmentResponse(BaseModel):
     id: uuid.UUID
@@ -20,7 +22,10 @@ class EquipmentResponse(BaseModel):
     serial_number: str | None = None
     equipment_type: str
     installation_date: date | None = None
+    location: str | None = None
+    operational_status: EquipmentOperationalStatus
     created_at: datetime
+    updated_at: datetime
 
 
 class EquipmentListResponse(BaseModel):

@@ -53,8 +53,8 @@ class User(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
         default=0,
         server_default=text("0"),
     )
-    profile_enrichment_last_attempt_at: Mapped[datetime | None] = (
-        mapped_column(DateTime(timezone=True), nullable=True)
+    profile_enrichment_last_attempt_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
     )
     profile_enriched_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),

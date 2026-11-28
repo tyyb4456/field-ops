@@ -5,9 +5,10 @@ name: fieldops-ai
 # Start the API stack with:
 #   docker compose --profile app up --build
 #
-# Celery workers/beat and database migrations are intentionally not part of
-# Phase 1. They will be added when background processing and the Alembic
-# migration setup are implemented.
+# Database migrations are managed by Alembic. After the postgres service is
+# healthy, apply them from the backend directory with:
+#   uv run alembic upgrade head
+# Celery workers/beat remain intentionally out of scope for Phase 2.
 x-app-image: &app-image
   build:
     context: ./backend

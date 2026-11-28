@@ -9,18 +9,26 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     String,
+    Text,
     UniqueConstraint,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.db.base import Base, CreatedAtMixin, UUIDPrimaryKeyMixin
+from app.db.base import Base, UpdatedAtMixin, UUIDPrimaryKeyMixin
+from app.models.enums import (
+    EquipmentOperationalStatus,
+    enum_type,
+)
 
 if TYPE_CHECKING:
     from app.models.complaint import Complaint
     from app.models.customer import Customer
+    from app.models.equipment_document import EquipmentDocument
+    from app.models.service_record import ServiceRecord
+    from app.models.work_order import WorkOrder
 
 
-class Equipment(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
+class Equipment(UUIDPrimaryKeyMixin, UpdatedAtMixin, Base):
     __tablename__ = "equipment"
     __table_args__ = (
         UniqueConstraint(
@@ -34,6 +42,7 @@ class Equipment(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
             name="uq_equipment_id_customer_id",
         ),
         Index("ix_equipment_customer_id", "customer_id"),
+        Index("ix_equipment_serial_number", "serial_number"),
     )
 
     customer_id: Mapped[uuid.UUID] = mapped_column(
@@ -51,11 +60,45 @@ class Equipment(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
         Date,
         nullable=True,
     )
+    location: Mapped[str | None] = mapped_column(Text, nullable=True)
+    operational_status: Mapped[EquipmentOperationalStatus] = mapped_column(
+        enum_type(
+            EquipmentOperationalStatus,
+            "equipment_operational_status",
+            length=30,
+        ),
+        nullable=False,
+        default=EquipmentOperationalStatus.ACTIVE,
+        server_default=EquipmentOperationalStatus.ACTIVE.value,
+    )
 
     customer: Mapped[Customer] = relationship(back_populates="equipment")
     complaints: Mapped[list[Complaint]] = relationship(
         back_populates="equipment",
-        foreign_keys="Complaint.equipment_id",
+        primaryjoin=(
+            "and_(Complaint.equipment_id == Equipment.id, "
+            "Complaint.customer_id == Equipment.customer_id)"
+        ),
+        foreign_keys="[Complaint.equipment_id, Complaint.customer_id]",
+        overlaps="complaints,customer,equipment",
+        passive_deletes="all",
+    )
+    work_orders: Mapped[list[WorkOrder]] = relationship(
+        back_populates="equipment",
+        primaryjoin=(
+            "and_(WorkOrder.equipment_id == Equipment.id, "
+            "WorkOrder.customer_id == Equipment.customer_id)"
+        ),
+        foreign_keys="[WorkOrder.equipment_id, WorkOrder.customer_id]",
+        overlaps="complaint,customer,equipment,work_orders",
+        passive_deletes="all",
+    )
+    service_records: Mapped[list[ServiceRecord]] = relationship(
+        back_populates="equipment",
+        passive_deletes="all",
+    )
+    documents: Mapped[list[EquipmentDocument]] = relationship(
+        back_populates="equipment",
         passive_deletes="all",
     )
 

@@ -17,43 +17,85 @@ class Priority(str, PyEnum):
     URGENT = "urgent"
 
 
-class ComplaintChannel(str, PyEnum):
+class Channel(str, PyEnum):
     WEB = "web"
     WHATSAPP = "whatsapp"
 
 
 class ComplaintStatus(str, PyEnum):
-    RECEIVED = "received"
-    ANALYZING = "analyzing"
-    AWAITING_CUSTOMER = "awaiting_customer"
-    READY_FOR_WORK_ORDER = "ready_for_work_order"
-    CONVERTED = "converted"
-    ESCALATED = "escalated"
+    DRAFT = "draft"
+    SUBMITTED = "submitted"
+    PENDING_APPROVAL = "pending_approval"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+    UNDER_INVESTIGATION = "under_investigation"
+    CONVERTED_TO_WORK_ORDER = "converted_to_work_order"
     CLOSED = "closed"
+    CANCELLED = "cancelled"
+
+
+class WorkOrderStatus(str, PyEnum):
+    DRAFT = "draft"
+    PENDING_APPROVAL = "pending_approval"
+    APPROVED = "approved"
+    ASSIGNED = "assigned"
+    IN_PROGRESS = "in_progress"
+    ON_HOLD = "on_hold"
+    COMPLETED = "completed"
     CANCELLED = "cancelled"
 
 
 class ConversationStatus(str, PyEnum):
     ACTIVE = "active"
     AWAITING_CUSTOMER = "awaiting_customer"
-    AWAITING_INVESTIGATION_APPROVAL = "awaiting_investigation_approval"
-    INVESTIGATING = "investigating"
-    AWAITING_ASSIGNMENT_APPROVAL = "awaiting_assignment_approval"
-    CONVERTED = "converted"
     CLOSED = "closed"
     ARCHIVED = "archived"
 
 
 class MessageSenderType(str, PyEnum):
     CUSTOMER = "customer"
-    ASSISTANT = "assistant"
-    STAFF = "staff"
+    AI_AGENT = "ai_agent"
+    ADMIN = "admin"
+    TECHNICIAN = "technician"
+    SYSTEM = "system"
 
 
-class MediaType(str, PyEnum):
+class MessageType(str, PyEnum):
+    TEXT = "text"
     IMAGE = "image"
     AUDIO = "audio"
-    DOCUMENT = "document"
+    FILE = "file"
+
+
+class TechnicianAssignmentStatus(str, PyEnum):
+    OFFERED = "offered"
+    ACCEPTED = "accepted"
+    REJECTED = "rejected"
+    WITHDRAWN = "withdrawn"
+    EXPIRED = "expired"
+
+
+class EquipmentOperationalStatus(str, PyEnum):
+    ACTIVE = "active"
+    DEGRADED = "degraded"
+    OFFLINE = "offline"
+    DECOMMISSIONED = "decommissioned"
+
+
+class EquipmentDocumentType(str, PyEnum):
+    MANUAL = "manual"
+    DATASHEET = "datasheet"
+    INSTALLATION_GUIDE = "installation_guide"
+    TROUBLESHOOTING_GUIDE = "troubleshooting_guide"
+    WARRANTY = "warranty"
+    OTHER = "other"
+
+
+class DocumentProcessingStatus(str, PyEnum):
+    PENDING = "pending"
+    PROCESSING = "processing"
+    READY = "ready"
+    FAILED = "failed"
 
 
 def enum_type(
@@ -73,12 +115,17 @@ def enum_type(
 
 
 __all__ = [
-    "ComplaintChannel",
+    "Channel",
     "ComplaintStatus",
     "ConversationStatus",
-    "MediaType",
+    "DocumentProcessingStatus",
+    "EquipmentDocumentType",
+    "EquipmentOperationalStatus",
     "MessageSenderType",
+    "MessageType",
     "Priority",
+    "TechnicianAssignmentStatus",
     "UserRole",
+    "WorkOrderStatus",
     "enum_type",
 ]
