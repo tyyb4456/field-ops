@@ -51,11 +51,19 @@ def _validate_installation_date(value: date | None) -> date | None:
 class EquipmentCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
+    customer_id: uuid.UUID | None = Field(
+        default=None,
+        description="Administrators only: owner of the equipment.",
+    )
     manufacturer: str = Field(min_length=1, max_length=150)
     model: str = Field(min_length=1, max_length=150)
     serial_number: str | None = Field(default=None, max_length=150)
     equipment_type: str = Field(min_length=1, max_length=80)
     installation_date: date | None = None
+    location: str | None = Field(default=None, max_length=2000)
+    operational_status: EquipmentOperationalStatus = (
+        EquipmentOperationalStatus.ACTIVE
+    )
 
     @field_validator("manufacturer", "model", "equipment_type")
     @classmethod
@@ -75,6 +83,14 @@ class EquipmentCreate(BaseModel):
     def validate_installation_date(cls, value: date | None) -> date | None:
         return _validate_installation_date(value)
 
+    @field_validator("location")
+    @classmethod
+    def normalize_location(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        stripped = value.strip()
+        return stripped or None
+
 
 class EquipmentUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -92,6 +108,7 @@ class EquipmentUpdate(BaseModel):
         max_length=80,
     )
     installation_date: date | None = None
+    location: str | None = Field(default=None, max_length=2000)
 
     @field_validator("manufacturer", "model", "equipment_type")
     @classmethod
@@ -113,8 +130,31 @@ class EquipmentUpdate(BaseModel):
     def validate_installation_date(cls, value: date | None) -> date | None:
         return _validate_installation_date(value)
 
+    @field_validator("location")
+    @classmethod
+    def normalize_location(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        stripped = value.strip()
+        return stripped or None
+
     @model_validator(mode="after")
     def require_at_least_one_field(self) -> EquipmentUpdate:
         if not self.model_fields_set:
             raise ValueError("At least one field must be provided")
         return self
+
+
+class EquipmentStatusUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    operational_status: EquipmentOperationalStatus
+
+
+__all__ = [
+    "EquipmentCreate",
+    "EquipmentListResponse",
+    "EquipmentResponse",
+    "EquipmentStatusUpdate",
+    "EquipmentUpdate",
+]

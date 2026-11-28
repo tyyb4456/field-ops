@@ -27,6 +27,7 @@ from app.services.accounts.clerk_auth import (
     ClerkIdentity,
     verify_clerk_token,
 )
+from app.services.shared.actor import ActorContext
 from app.services.shared.rate_limit import (
     RateLimitExceeded,
     enforce_bootstrap_subject_limit,
@@ -165,6 +166,20 @@ require_admin_user = require_roles(UserRole.ADMIN)
 require_customer_user = require_roles(UserRole.CUSTOMER)
 require_technician_user = require_roles(UserRole.TECHNICIAN)
 require_operations_user = require_roles(UserRole.ADMIN, UserRole.TECHNICIAN)
+
+
+async def get_actor_context(
+    current_user: User = Depends(get_current_user),
+) -> ActorContext:
+    """Build the trusted actor context used by domain services."""
+    customer = current_user.customer
+    technician = current_user.technician
+    return ActorContext(
+        user_id=current_user.id,
+        role=current_user.role,
+        customer_id=customer.id if customer is not None else None,
+        technician_id=technician.id if technician is not None else None,
+    )
 
 
 async def get_current_customer(

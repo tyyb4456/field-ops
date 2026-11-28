@@ -12,16 +12,13 @@ from app.schemas.common import ORMModel, StrictRequest
 
 class WorkOrderCreate(StrictRequest):
     complaint_id: uuid.UUID
-    customer_id: uuid.UUID
-    equipment_id: uuid.UUID
-    work_order_number: str = Field(min_length=1, max_length=50)
+    work_order_number: str | None = Field(default=None, max_length=50)
     title: str = Field(min_length=1, max_length=200)
     description: str = Field(min_length=1, max_length=10_000)
     diagnostic_findings: str | None = None
     required_actions: list[Any] = Field(default_factory=list)
     priority: Priority = Priority.NORMAL
     scheduled_date: date | None = None
-    approved_by_id: uuid.UUID | None = None
 
 
 class WorkOrderUpdate(StrictRequest):
@@ -34,10 +31,12 @@ class WorkOrderUpdate(StrictRequest):
     diagnostic_findings: str | None = None
     required_actions: list[Any] | None = None
     priority: Priority | None = None
-    status: WorkOrderStatus | None = None
     scheduled_date: date | None = None
+
+
+class WorkOrderComplete(StrictRequest):
+    completion_summary: str = Field(min_length=1, max_length=10_000)
     completion_date: date | None = None
-    completion_summary: str | None = None
 
 
 class WorkOrderResponse(ORMModel):
@@ -59,3 +58,19 @@ class WorkOrderResponse(ORMModel):
     approved_at: datetime | None = None
     created_at: datetime
     updated_at: datetime
+
+
+class WorkOrderListResponse(ORMModel):
+    items: list[WorkOrderResponse]
+    total: int
+    limit: int
+    offset: int
+
+
+__all__ = [
+    "WorkOrderComplete",
+    "WorkOrderCreate",
+    "WorkOrderListResponse",
+    "WorkOrderResponse",
+    "WorkOrderUpdate",
+]

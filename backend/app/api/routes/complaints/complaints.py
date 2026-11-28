@@ -1,120 +1,105 @@
 from __future__ import annotations
 
-import logging
 import uuid
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.dependencies.auth import (
-    get_current_customer,
-    require_customer_user,
-)
+from app.api.dependencies.auth import get_actor_context
 from app.api.serializers import complaint_response
-from app.core.exceptions import AppError
 from app.db.session import get_db_session
-from app.models.customer import Customer
-from app.models.enums import ComplaintStatus
-from app.models.user import User
+from app.models.enums import ComplaintStatus, Priority
 from app.schemas.complaint import (
+    ComplaintApprove,
     ComplaintCreate,
     ComplaintListResponse,
+    ComplaintReject,
     ComplaintResponse,
     ComplaintUpdate,
 )
 from app.services.complaints import complaints as complaint_service
-from app.services.complaints.complaints import InvalidComplaintTransitionError
+from app.services.shared.actor import ActorContext
+from app.services.shared.pagination import Pagination, pagination_params
+from app.services.shared.transactions import commit
 
-logger = logging.getLogger(__name__)
-
-router = APIRouter(
-    prefix="/customers/me/complaints",
-    tags=["Complaints"],
-)
-
-
-def _complaint_conflict_error() -> AppError:
-    return AppError(
-        "Complaint conflicts with an existing record.",
-        status_code=status.HTTP_409_CONFLICT,
-        code="complaint_conflict",
-    )
-
-
-def _invalid_transition_error() -> AppError:
-    return AppError(
-        "Complaint cannot be changed in its current state.",
-        status_code=status.HTTP_409_CONFLICT,
-        code="invalid_status_transition",
-    )
-
-
-@router.get(
-    "",
-    response_model=ComplaintListResponse,
-    summary="List the authenticated customer's complaints",
-)
-async def list_own_complaints(
-    complaint_status: ComplaintStatus | None = Query(
-        default=None,
-        alias="status",
-    ),
-    equipment_id: uuid.UUID | None = Query(default=None),
-    created_from: datetime | None = Query(default=None),
-    created_to: datetime | None = Query(default=None),
-    limit: int = Query(default=50, ge=1, le=100),
-    offset: int = Query(default=0, ge=0),
-    customer: Customer = Depends(get_current_customer),
-    session: AsyncSession = Depends(get_db_session),
-) -> ComplaintListResponse:
-    items, total = await complaint_service.list_complaints(
-        session,
-        customer_id=customer.id,
-        status=complaint_status,
-        equipment_id=equipment_id,
-        created_from=created_from,
-        created_to=created_to,
-        limit=limit,
-        offset=offset,
-    )
-    return ComplaintListResponse(
-        items=[complaint_response(item) for item in items],
-        total=total,
-        limit=limit,
-        offset=offset,
-    )
+router = APIRouter(prefix="/complaints", tags=["Complaints"])
 
 
 @router.post(
     "",
     response_model=ComplaintResponse,
     status_code=status.HTTP_201_CREATED,
-    summary="Create a complaint for the authenticated customer",
+    summary="File a complaint",
 )
-async def create_own_complaint(
+async def create_complaint(
     payload: ComplaintCreate,
-    current_user: User = Depends(require_customer_user),
-    customer: Customer = Depends(get_current_customer),
+    actor: ActorContext = Depends(get_actor_context),
     session: AsyncSession = Depends(get_db_session),
 ) -> ComplaintResponse:
-    return complaint_response()
+    complaint = await complaint_service.create_complaint(
+        session,
+        actor,
+        payload,
+    )
+    await commit(session)
+    await session.refresh(complaint)
+    return complaint_response(complaint)
+
+
+@router.get(
+    "",
+    response_model=ComplaintListResponse,
+    summary="List complaints",
+)
+async def list_complaints(
+    customer_id: uuid.UUID | None = Query(default=None),
+    complaint_status: ComplaintStatus | None = Query(
+        default=None,
+        alias="status",
+    ),
+    priority: Priority | None = Query(default=None),
+    equipment_id: uuid.UUID | None = Query(default=None),
+    created_from: datetime | None = Query(default=None),
+    created_to: datetime | None = Query(default=None),
+    pagination: Pagination = Depends(pagination_params),
+    actor: ActorContext = Depends(get_actor_context),
+    session: AsyncSession = Depends(get_db_session),
+) -> ComplaintListResponse:
+    items, total = await complaint_service.list_complaints(
+        session,
+        actor,
+        limit=pagination.limit,
+        offset=pagination.offset,
+        customer_id=customer_id,
+        status=complaint_status,
+        priority=priority,
+        equipment_id=equipment_id,
+        created_from=created_from,
+        created_to=created_to,
+    )
+    return ComplaintListResponse(
+        items=[complaint_response(item) for item in items],
+        total=total,
+        limit=pagination.limit,
+        offset=pagination.offset,
+    )
 
 
 @router.get(
     "/{complaint_id}",
     response_model=ComplaintResponse,
-    summary="Retrieve one of the authenticated customer's complaints",
+    summary="Retrieve a complaint",
 )
-async def read_own_complaint(
+async def read_complaint(
     complaint_id: uuid.UUID,
-    customer: Customer = Depends(get_current_customer),
+    actor: ActorContext = Depends(get_actor_context),
     session: AsyncSession = Depends(get_db_session),
 ) -> ComplaintResponse:
-    complaint = await complaint_service.get_complaint(
+    complaint = await complaint_service.get_complaint_for_actor(
         session,
         complaint_id,
-        customer_id=customer.id,
+        actor,
     )
     return complaint_response(complaint)
 
@@ -122,85 +107,160 @@ async def read_own_complaint(
 @router.patch(
     "/{complaint_id}",
     response_model=ComplaintResponse,
-    summary="Update permitted fields of the customer's complaint",
+    summary="Update permitted complaint fields",
 )
-async def update_own_complaint(
+async def update_complaint(
     complaint_id: uuid.UUID,
     payload: ComplaintUpdate,
-    current_user: User = Depends(require_customer_user),
-    customer: Customer = Depends(get_current_customer),
+    actor: ActorContext = Depends(get_actor_context),
     session: AsyncSession = Depends(get_db_session),
 ) -> ComplaintResponse:
-    complaint = await complaint_service.get_complaint(
+    complaint = await complaint_service.get_complaint_for_actor(
         session,
         complaint_id,
-        customer_id=customer.id,
+        actor,
         for_update=True,
     )
-    try:
-        updated = await complaint_service.update_complaint(
-            session,
-            complaint,
-            payload,
-            actor_id=current_user.id,
-        )
-        await session.commit()
-    except InvalidComplaintTransitionError as exc:
-        await session.rollback()
-        raise _invalid_transition_error() from exc
-
-    await session.refresh(updated)
-    logger.info(
-        "Complaint updated",
-        extra={
-            "event": "complaint_updated",
-            "actor_id": str(current_user.id),
-            "customer_id": str(customer.id),
-            "complaint_id": str(updated.id),
-        },
+    updated = await complaint_service.update_complaint(
+        session,
+        complaint,
+        actor,
+        payload,
     )
+    await commit(session)
+    await session.refresh(updated)
     return complaint_response(updated)
+
+
+@router.post(
+    "/{complaint_id}/submit",
+    response_model=ComplaintResponse,
+    summary="Submit a complaint for review",
+)
+async def submit_complaint(
+    complaint_id: uuid.UUID,
+    actor: ActorContext = Depends(get_actor_context),
+    session: AsyncSession = Depends(get_db_session),
+) -> ComplaintResponse:
+    complaint = await complaint_service.get_complaint_for_actor(
+        session,
+        complaint_id,
+        actor,
+        for_update=True,
+    )
+    submitted = await complaint_service.submit_complaint(
+        session,
+        complaint,
+        actor,
+    )
+    await commit(session)
+    await session.refresh(submitted)
+    return complaint_response(submitted)
+
+
+@router.post(
+    "/{complaint_id}/approve",
+    response_model=ComplaintResponse,
+    summary="Administrator: approve a complaint",
+)
+async def approve_complaint(
+    complaint_id: uuid.UUID,
+    payload: ComplaintApprove,
+    actor: ActorContext = Depends(get_actor_context),
+    session: AsyncSession = Depends(get_db_session),
+) -> ComplaintResponse:
+    complaint = await complaint_service.get_complaint_for_actor(
+        session,
+        complaint_id,
+        actor,
+        for_update=True,
+    )
+    approved = await complaint_service.approve_complaint(
+        session,
+        complaint,
+        actor,
+        notes=payload.notes,
+    )
+    await commit(session)
+    await session.refresh(approved)
+    return complaint_response(approved)
+
+
+@router.post(
+    "/{complaint_id}/reject",
+    response_model=ComplaintResponse,
+    summary="Administrator: reject a complaint",
+)
+async def reject_complaint(
+    complaint_id: uuid.UUID,
+    payload: ComplaintReject,
+    actor: ActorContext = Depends(get_actor_context),
+    session: AsyncSession = Depends(get_db_session),
+) -> ComplaintResponse:
+    complaint = await complaint_service.get_complaint_for_actor(
+        session,
+        complaint_id,
+        actor,
+        for_update=True,
+    )
+    rejected = await complaint_service.reject_complaint(
+        session,
+        complaint,
+        actor,
+        rejection_reason=payload.rejection_reason,
+    )
+    await commit(session)
+    await session.refresh(rejected)
+    return complaint_response(rejected)
+
+
+@router.post(
+    "/{complaint_id}/investigate",
+    response_model=ComplaintResponse,
+    summary="Administrator: start complaint investigation",
+)
+async def start_complaint_investigation(
+    complaint_id: uuid.UUID,
+    actor: ActorContext = Depends(get_actor_context),
+    session: AsyncSession = Depends(get_db_session),
+) -> ComplaintResponse:
+    complaint = await complaint_service.get_complaint_for_actor(
+        session,
+        complaint_id,
+        actor,
+        for_update=True,
+    )
+    investigating = await complaint_service.start_investigation(
+        session,
+        complaint,
+        actor,
+    )
+    await commit(session)
+    await session.refresh(investigating)
+    return complaint_response(investigating)
 
 
 @router.post(
     "/{complaint_id}/cancel",
     response_model=ComplaintResponse,
-    summary="Cancel the customer's complaint when its state permits it",
+    summary="Cancel a complaint while its state permits it",
 )
-async def cancel_own_complaint(
+async def cancel_complaint(
     complaint_id: uuid.UUID,
-    current_user: User = Depends(require_customer_user),
-    customer: Customer = Depends(get_current_customer),
+    actor: ActorContext = Depends(get_actor_context),
     session: AsyncSession = Depends(get_db_session),
 ) -> ComplaintResponse:
-    complaint = await complaint_service.get_complaint(
+    complaint = await complaint_service.get_complaint_for_actor(
         session,
         complaint_id,
-        customer_id=customer.id,
+        actor,
         for_update=True,
     )
-    previous_status = complaint.status
-    try:
-        cancelled = await complaint_service.cancel_complaint(
-            session,
-            complaint,
-            actor_id=current_user.id,
-        )
-        await session.commit()
-    except InvalidComplaintTransitionError as exc:
-        await session.rollback()
-        raise _invalid_transition_error() from exc
-
-    await session.refresh(cancelled)
-    logger.info(
-        "Complaint cancelled",
-        extra={
-            "event": "complaint_cancelled",
-            "actor_id": str(current_user.id),
-            "customer_id": str(customer.id),
-            "complaint_id": str(cancelled.id),
-            "status_from": previous_status.value,
-            "status_to": cancelled.status.value,
-        },
+    cancelled = await complaint_service.cancel_complaint(
+        session,
+        complaint,
+        actor,
     )
+    await commit(session)
+    await session.refresh(cancelled)
     return complaint_response(cancelled)

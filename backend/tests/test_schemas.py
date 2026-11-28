@@ -50,16 +50,14 @@ def test_message_defaults_to_text() -> None:
     assert message.message_type is MessageType.TEXT
 
 
-def test_work_order_requires_owner_and_equipment() -> None:
+def test_work_order_derives_ownership_from_complaint() -> None:
     work_order = WorkOrderCreate(
         complaint_id=uuid.uuid4(),
-        customer_id=uuid.uuid4(),
-        equipment_id=uuid.uuid4(),
-        work_order_number="WO-1001",
         title="Repair inverter",
         description="Investigate the fault.",
     )
 
+    assert work_order.work_order_number is None
     assert work_order.priority is Priority.NORMAL
     assert work_order.required_actions == []
 

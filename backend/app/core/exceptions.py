@@ -45,6 +45,18 @@ def register_exception_handlers(app: FastAPI) -> None:
     # Imported lazily so the core error layer does not import service modules
     # during application module initialization.
     from app.services.shared.authorization import AccessDeniedError
+    from app.services.shared.errors import DomainError
+
+    @app.exception_handler(DomainError)
+    async def domain_error_handler(
+        request: Request,
+        exc: DomainError,
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=exc.status_code,
+            content=error_payload(exc.code, exc.message),
+            headers={**exc.headers, **request_id_headers(request)},
+        )
 
     @app.exception_handler(AccessDeniedError)
     async def access_denied_error_handler(

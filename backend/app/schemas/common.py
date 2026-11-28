@@ -13,3 +13,15 @@ class StrictRequest(BaseModel):
     """Base request model that rejects unknown fields."""
 
     model_config = ConfigDict(extra="forbid")
+
+
+class Page[T](BaseModel):
+    """Consistent pagination envelope used by collection endpoints."""
+
+    items: list[T]
+    total: int
+    limit: int
+    offset: int
+
+
+__all__ = ["ORMModel", "Page", "StrictRequest"]

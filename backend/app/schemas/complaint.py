@@ -11,7 +11,10 @@ from app.schemas.common import ORMModel, StrictRequest
 
 
 class ComplaintCreate(StrictRequest):
-    customer_id: uuid.UUID
+    customer_id: uuid.UUID | None = Field(
+        default=None,
+        description="Administrators only: customer filing the complaint.",
+    )
     equipment_id: uuid.UUID | None = None
     origin_conversation_id: uuid.UUID | None = None
     description: str = Field(min_length=1, max_length=10_000)
@@ -29,10 +32,12 @@ class ComplaintUpdate(StrictRequest):
     priority: Priority | None = None
 
 
-class ComplaintReview(StrictRequest):
-    approved: bool
-    notes: str | None = None
-    rejection_reason: str | None = None
+class ComplaintApprove(StrictRequest):
+    notes: str | None = Field(default=None, max_length=5_000)
+
+
+class ComplaintReject(StrictRequest):
+    rejection_reason: str = Field(min_length=1, max_length=5_000)
 
 
 class ComplaintResponse(ORMModel):
@@ -61,3 +66,13 @@ class ComplaintListResponse(ORMModel):
     total: int
     limit: int
     offset: int
+
+
+__all__ = [
+    "ComplaintApprove",
+    "ComplaintCreate",
+    "ComplaintListResponse",
+    "ComplaintReject",
+    "ComplaintResponse",
+    "ComplaintUpdate",
+]
